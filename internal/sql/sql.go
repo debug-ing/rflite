@@ -2,22 +2,32 @@ package sql
 
 import (
 	"database/sql"
+	"encoding/json"
+	"fmt"
 	"io"
 	"log"
-	"rflite/internal/executer"
-	"rflite/pkg"
 
 	"github.com/hashicorp/raft"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 type SQLFSM struct {
-	name string
-	DB   *sql.DB
+	name            string
+	DB              *sql.DB
+	AppliedCommands []Command
+}
+
+type Command struct {
+	SQL string
 }
 
 func NewSQLFSM(name string) *SQLFSM {
+	db, err := sql.Open("sqlite3", name)
+	if err != nil {
+		log.Fatalf("failed to open SQLite DB: %v", err)
+	}
 	return &SQLFSM{
+		DB:   db,
 		name: name,
 	}
 }
@@ -27,17 +37,21 @@ func (f *SQLFSM) Close() error {
 }
 
 func (f *SQLFSM) Apply(l *raft.Log) interface{} {
-	sqlStmt := string(l.Data)
-	db, q, err := pkg.ParseUseQuery(sqlStmt)
-	if err != nil {
-		log.Printf("SQL Parse error: %v", err)
+	// sqlStmt := string(l.Data)
+	var cmd Command
+	if err := json.Unmarshal(l.Data, &cmd); err != nil {
+		log.Printf("failed to unmarshal command: %v", err)
 		return nil
 	}
-	exec := executer.NewExecuter(db)
-	err = exec.Exec(q)
+
+	sqlStmt := cmd.SQL
+
+	fmt.Println("Applying SQL:", sqlStmt)
+	_, err := f.DB.Exec(sqlStmt)
 	if err != nil {
 		log.Printf("SQL Exec error: %v", err)
 	}
+	f.AppliedCommands = append(f.AppliedCommands, Command{SQL: sqlStmt})
 	return nil
 }
 
