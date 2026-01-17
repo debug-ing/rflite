@@ -1,6 +1,8 @@
 package store
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"strings"
 )
@@ -14,6 +16,22 @@ func NewStore() *Store {
 
 func (s *Store) Close() error {
 	return nil
+}
+
+func (s *Store) CreateDatabase(name string) (string, error) {
+	exits := s.DatabaseExists(name)
+	if !exits {
+		path := "./db/" + name + ".db"
+		file, err := os.Create(path)
+		if err != nil {
+			return "", err
+		}
+		file.Close()
+		return path, nil
+	} else {
+		errMsg := fmt.Sprintf("database with name %s already exists", name)
+		return "", errors.New(errMsg)
+	}
 }
 
 func (s *Store) ListDatabases() []string {

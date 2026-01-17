@@ -32,6 +32,33 @@ func main() {
 		}})
 	})
 
+	g.POST("/db", func(c *gin.Context) {
+		var body struct {
+			Name string `json:"name" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&body); err != nil {
+			c.JSON(400, gin.H{
+				"message": "Failed",
+				"error":   err.Error(),
+			})
+			return
+		}
+		result, err := store.NewStore().CreateDatabase(body.Name)
+
+		if err != nil {
+			c.JSON(400, gin.H{
+				"message": "Failed",
+				"error":   err.Error(),
+			})
+			return
+		}
+
+		c.JSON(200, gin.H{
+			"message": "Success",
+			"path":    result,
+		})
+	})
+
 	g.POST("/db/:name/query", func(c *gin.Context) {
 		q := c.PostForm("q")
 		name := c.Param("name")
